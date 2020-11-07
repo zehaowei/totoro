@@ -1,0 +1,5 @@
+# memcached
+
+FROM amd64/memcached:latest
+
+CMD memcached -m 128

@@ -1,0 +1,10 @@
+version: '3'
+
+services:
+    memcached:
+        build: 
+            context: ./memcached_image
+            dockerfile: dockerfile
+        container_name: memcached
+        ports: 
+          - "11211:11211"

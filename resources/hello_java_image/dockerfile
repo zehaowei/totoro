@@ -1,0 +1,9 @@
+# memcached
+
+FROM openjdk:latest
+
+COPY . /usr/src/hello
+
+WORKDIR /usr/src/hello
+
+CMD ["java", "-jar", "serverlessTest.jar"]

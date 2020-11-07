@@ -1,0 +1,9 @@
+# py sort
+
+FROM python:latest
+
+COPY . /usr/src/hello
+
+WORKDIR /usr/src/hello
+
+CMD ["python", "sort.py"]
