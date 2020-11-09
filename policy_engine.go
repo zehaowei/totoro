@@ -16,28 +16,28 @@ func MakePolicyEngine(ttr *Totoro) *PolicyEngine {
 
 func (pe *PolicyEngine) SimplePolicy(cpuUsage float64) {
 	cpuNums := pe.ttr.mainAppManager.cpuNums
-	if cpuUsage <= 80 {
+	if cpuUsage <= 50 {
 		if cpuNums > 1 {
 			pe.ttr.mainAppManager.UpdateCpuSet("0")
 			pe.ttr.mainAppManager.cpuNums = 1
 		}
 		cpus := []bool{true, false, false, false}
 		pe.dealWithServerless(cpus)
-	} else if cpuUsage > 90 && cpuUsage <= 170 {
+	} else if cpuUsage > 75 && cpuUsage <= 150 {
 		if cpuNums != 2 {
 			pe.ttr.mainAppManager.UpdateCpuSet("0-1")
 			pe.ttr.mainAppManager.cpuNums = 2
 		}
 		cpus := []bool{true, true, false, false}
 		pe.dealWithServerless(cpus)
-	} else if cpuUsage > 180 && cpuUsage < 260 {
+	} else if cpuUsage > 160 && cpuUsage < 240 {
 		if cpuNums != 3 {
 			pe.ttr.mainAppManager.UpdateCpuSet("0-2")
 			pe.ttr.mainAppManager.cpuNums = 3
 		}
 		cpus := []bool{true, true, true, false}
 		pe.dealWithServerless(cpus)
-	} else if cpuUsage > 270 {
+	} else if cpuUsage > 260 {
 		if cpuNums != 4 {
 			pe.ttr.mainAppManager.UpdateCpuSet("0-3")
 			pe.ttr.mainAppManager.cpuNums = 4

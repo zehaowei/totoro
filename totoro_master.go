@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-const MonitorInterval = 10 * time.Second
+const MonitorInterval = 5 * time.Second
 
 type Totoro struct {
 	mainAppManager 		*MainAppManager

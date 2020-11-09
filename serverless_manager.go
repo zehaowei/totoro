@@ -53,12 +53,17 @@ func MakeServerlessManager() *ServerlessManager {
 		status: WAITING,
 	})
 	serm.taskWaitQueue.Put(Task{
-		name: "java_hello2",
-		imageName: "zehwei/hello_java",
+		name: "sort2",
+		imageName: "zehwei/sort:1.0",
 		status: WAITING,
 	})
 	serm.taskWaitQueue.Put(Task{
-		name: "sort2",
+		name: "sort3",
+		imageName: "zehwei/sort:1.0",
+		status: WAITING,
+	})
+	serm.taskWaitQueue.Put(Task{
+		name: "sort4",
 		imageName: "zehwei/sort:1.0",
 		status: WAITING,
 	})
