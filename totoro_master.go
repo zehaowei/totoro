@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-const MonitorInterval = 20 * time.Second
+const MonitorInterval = 10 * time.Second
 
 type Totoro struct {
 	mainAppManager 		*MainAppManager
@@ -15,9 +15,9 @@ type Totoro struct {
 
 func MakeTotoro() *Totoro {
 	totoro := new(Totoro)
-	totoro.mainAppManager = MakeMainAppManager("resources_memcached", "memcached")
+	totoro.mainAppManager = MakeMainAppManager("zehwei/memcached", "memcached")
 	totoro.serverlessManager = MakeServerlessManager()
-	totoro.policyEngine = MakePolicyEngine()
+	totoro.policyEngine = MakePolicyEngine(totoro)
 	totoro.shutdown = make(chan struct{})
 
 	return totoro
@@ -43,5 +43,5 @@ func (ttr *Totoro) monitorMainApp() {
 
 func (ttr *Totoro) collectResourceInfo() {
 	cpuUsage, _ := ttr.mainAppManager.GetResourceInfo()
-	ttr.simplePolicy(cpuUsage)
+	ttr.policyEngine.SimplePolicy(cpuUsage)
 }

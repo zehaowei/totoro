@@ -42,6 +42,15 @@ func GetContainerIdByName(name string) string {
 	return ""
 }
 
+func InspectContainerById(containerId string) string {
+	ctx, cli := initCtxAndCli()
+
+	info, _ := cli.ContainerInspect(ctx, containerId)
+	status := info.ContainerJSONBase.State
+
+	return status.Status
+}
+
 func GetAppResourceInfo(containerId string) (float64, float64){
 	ctx, cli := initCtxAndCli()
 
@@ -73,11 +82,11 @@ func GetAppResourceInfo(containerId string) (float64, float64){
 		numberCpus := uint64(len(containerStats.CPUStats.CPUUsage.PercpuUsage))
 		cpuUsage := (float64(cpuDelta) / float64(systemCpuDelta)) * float64(numberCpus) * 100.0
 		util.PrintInfo("[info] container:(%s) cpu_usage:%f memory_usage:%f", containerId, cpuUsage, memoryUsage)
-		util.PrintInfo("[info] cpuDelta: %d", cpuDelta)
-		util.PrintInfo("[info] systemCpuDelta: %d", systemCpuDelta)
-		util.PrintInfo("[info] numberCpus: %d", numberCpus)
-		util.PrintInfo("[info] usedMemory: %d", usedMemory)
-		util.PrintInfo("[info] availableMemory: %d", availableMemory)
+		//util.PrintInfo("[info] cpuDelta: %d", cpuDelta)
+		//util.PrintInfo("[info] systemCpuDelta: %d", systemCpuDelta)
+		//util.PrintInfo("[info] numberCpus: %d", numberCpus)
+		//util.PrintInfo("[info] usedMemory: %d", usedMemory)
+		//util.PrintInfo("[info] availableMemory: %d", availableMemory)
 
 		return cpuUsage, memoryUsage
 	} else {
@@ -86,7 +95,7 @@ func GetAppResourceInfo(containerId string) (float64, float64){
 	return 0.0, 0.0
 }
 
-func CreateContainerByImageName(containerName string, config *container.Config, hostConfig *container.HostConfig) {
+func CreateContainerByImageName(containerName string, config *container.Config, hostConfig *container.HostConfig) string {
 	ctx, cli := initCtxAndCli()
 
 	resp, err := cli.ContainerCreate(ctx, config, hostConfig, nil, nil, containerName)
@@ -99,6 +108,7 @@ func CreateContainerByImageName(containerName string, config *container.Config, 
 	}
 
 	util.PrintInfo("[info] container (%s) is running", containerName)
+	return resp.ID
 }
 
 func UpdateContainerCpuShareById(containerId string, cpuShare int64) {
@@ -130,7 +140,7 @@ func UpdateContainerCpuQuotaById(containerId string, cpuQuota int64) {
 		util.PrintErr("[error] container (%s) resource update error", containerId)
 		fmt.Println(err)
 	} else {
-		util.PrintInfo("[info] container updated: cpuQuota %s", cpuQuota)
+		util.PrintInfo("[info] container updated: cpuQuota %d", cpuQuota)
 	}
 }
 

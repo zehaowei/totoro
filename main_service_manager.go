@@ -10,13 +10,14 @@ type MainAppManager struct {
 	containerId 	string
 
 	// resources config
-	cpuSets			string
+	cpuNums 		int
 }
 
 func MakeMainAppManager(imageName string, appName string) *MainAppManager {
 	mam := new (MainAppManager)
 	mam.appName = appName
 	mam.imageName = imageName
+	mam.cpuNums = 1
 
 	return mam
 }
@@ -36,10 +37,16 @@ func (mam *MainAppManager) LaunchMainApp() {
 	//})
 
 	mam.containerId = GetContainerIdByName("/"+mam.appName)
-	UpdateContainerCpuQuotaById(mam.containerId, 50000)
+	UpdateContainerCpuSetsById(mam.containerId, "0")
+	// UpdateContainerCpuQuotaById(mam.containerId, 50000)
 }
 
 func (mam *MainAppManager) GetResourceInfo() (float64, float64){
 	util.PrintInfo("[info] ----------------  Main App Info  ----------------")
 	return GetAppResourceInfo(mam.containerId)
+}
+
+func (mam *MainAppManager) UpdateCpuSet(cpuSet string) {
+	util.PrintInfo("[info] ----------------  Set Main App Cpu Set (%s)  ----------------", cpuSet)
+	UpdateContainerCpuSetsById(mam.containerId, cpuSet)
 }
