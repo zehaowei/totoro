@@ -81,7 +81,7 @@ func GetAppResourceInfo(containerId string) (float64, float64){
 		systemCpuDelta := containerStats.CPUStats.SystemUsage - containerStats.PreCPUStats.SystemUsage
 		numberCpus := uint64(len(containerStats.CPUStats.CPUUsage.PercpuUsage))
 		cpuUsage := (float64(cpuDelta) / float64(systemCpuDelta)) * float64(numberCpus) * 100.0
-		util.PrintInfo("[info] container:(%s) cpu_usage:%f memory_usage:%f", containerId, cpuUsage, memoryUsage)
+		//util.PrintInfo("[info] container:(%s) cpu_usage:%f memory_usage:%f", containerId, cpuUsage, memoryUsage)
 		//util.PrintInfo("[info] cpuDelta: %d", cpuDelta)
 		//util.PrintInfo("[info] systemCpuDelta: %d", systemCpuDelta)
 		//util.PrintInfo("[info] numberCpus: %d", numberCpus)
@@ -107,7 +107,7 @@ func CreateContainerByImageName(containerName string, config *container.Config, 
 		panic(err)
 	}
 
-	util.PrintInfo("[info] container (%s) is running", containerName)
+	//util.PrintInfo("[info] container (%s) is running", containerName)
 	return resp.ID
 }
 
@@ -156,7 +156,7 @@ func UpdateContainerCpuSetsById(containerId string, cpuSets string) {
 		util.PrintErr("[error] container (%s) resource update error", containerId)
 		fmt.Println(err)
 	} else {
-		util.PrintInfo("[info] container cpuSets updated: cpuSets { %s }", cpuSets)
+		//util.PrintInfo("[info] container cpuSets updated: cpuSets { %s }", cpuSets)
 	}
 }
 
@@ -167,7 +167,7 @@ func StopContainerById(containerId string, timeout time.Duration) {
 	if err != nil {
 		util.PrintErr("[error] container (%s) stop error", containerId)
 	} else {
-		util.PrintInfo("[info] container stopped")
+		//util.PrintInfo("[info] container stopped")
 	}
 }
 
@@ -178,7 +178,7 @@ func KillContainerById(containerId string) {
 	if err != nil {
 		util.PrintErr("[error] container (%s) kill error", containerId)
 	} else {
-		util.PrintInfo("[info] container killed")
+		//util.PrintInfo("[info] container killed")
 	}
 }
 
@@ -188,7 +188,7 @@ func StartContainerById(containerId string) {
 	if err := cli.ContainerStart(ctx, containerId, types.ContainerStartOptions{}); err != nil {
 		panic(err)
 	} else {
-		util.PrintInfo("[info] container started")
+		//util.PrintInfo("[info] container started")
 	}
 }
 

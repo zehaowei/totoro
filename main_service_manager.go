@@ -1,6 +1,7 @@
 package totoro
 
 import (
+	"time"
 	"totoro/util"
 )
 
@@ -42,11 +43,11 @@ func (mam *MainAppManager) LaunchMainApp() {
 }
 
 func (mam *MainAppManager) GetResourceInfo() (float64, float64){
-	util.PrintInfo("[info] ----------------  Main App Info  ----------------")
+	// util.PrintInfo("[info] ----------------  Main App Info  ----------------")
 	return GetAppResourceInfo(mam.containerId)
 }
 
 func (mam *MainAppManager) UpdateCpuSet(cpuSet string) {
-	util.PrintInfo("[info] ----------------  Set Main App Cpu Set (%s)  ----------------", cpuSet)
 	UpdateContainerCpuSetsById(mam.containerId, cpuSet)
+	util.PrintInfo("[info] ----------------  Set Main App Cpu Set (%s)  ---------------- %v", cpuSet, time.Now().Unix())
 }

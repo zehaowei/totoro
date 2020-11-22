@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-const MonitorInterval = 5 * time.Second
+const MonitorInterval = 2500 * time.Millisecond
 
 type Totoro struct {
 	mainAppManager 		*MainAppManager
@@ -43,5 +43,6 @@ func (ttr *Totoro) monitorMainApp() {
 
 func (ttr *Totoro) collectResourceInfo() {
 	cpuUsage, _ := ttr.mainAppManager.GetResourceInfo()
+	//ttr.policyEngine.PolicyWithoutTask(cpuUsage)
 	ttr.policyEngine.SimplePolicy(cpuUsage)
 }

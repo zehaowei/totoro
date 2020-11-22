@@ -3,6 +3,7 @@ package totoro
 import (
 	"github.com/Workiva/go-datastructures/queue"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/strslice"
 	"strconv"
 	"sync"
 	"time"
@@ -17,19 +18,23 @@ const (
 )
 
 type ServerlessManager struct {
-	tasksRunning		map[int][]Task
-	taskContinueQueue 	*queue.Queue
-	taskWaitQueue 		*queue.Queue
+	tasksRunning		map[int][]Task		// tasks is running
+	taskContinueQueue 	*queue.Queue		// tasks wait to be restarted
+	taskWaitQueue 		*queue.Queue		// tasks wait to be executed
+	taskLoader			*TaskLoader
 	mu					sync.Mutex
+
+	cpuTasksLimits		map[int]int			// maximal number of tasks in each cpu core
 }
 
 type Task struct {
-	name 			string
-	imageName		string
-	containerId 	string
-	status 			int
+	Name 			string
+	ImageName		string
+	ContainerId 	string
+	Cmd  			strslice.StrSlice
+	Status 			int
 
-	cpuSet			int
+	CpuSet			int
 }
 
 func MakeServerlessManager() *ServerlessManager {
@@ -40,33 +45,16 @@ func MakeServerlessManager() *ServerlessManager {
 	}
 	serm.taskContinueQueue = new(queue.Queue)
 	serm.taskWaitQueue = new(queue.Queue)
+	serm.cpuTasksLimits = map[int]int {
+		0: 0, 1: 1, 2: 1, 3: 1,
+	}
+	serm.taskLoader = MakeTaskLoader()
 
-	// just for test
-	serm.taskWaitQueue.Put(Task{
-		name: "java_hello1",
-		imageName: "zehwei/hello_java",
-		status: WAITING,
-	})
-	serm.taskWaitQueue.Put(Task{
-		name: "sort1",
-		imageName: "zehwei/sort:1.0",
-		status: WAITING,
-	})
-	serm.taskWaitQueue.Put(Task{
-		name: "sort2",
-		imageName: "zehwei/sort:1.0",
-		status: WAITING,
-	})
-	serm.taskWaitQueue.Put(Task{
-		name: "sort3",
-		imageName: "zehwei/sort:1.0",
-		status: WAITING,
-	})
-	serm.taskWaitQueue.Put(Task{
-		name: "sort4",
-		imageName: "zehwei/sort:1.0",
-		status: WAITING,
-	})
+	tasks := serm.taskLoader.loadTasks(CPU)
+	for _, tsk := range tasks {
+		err := serm.taskWaitQueue.Put(tsk)
+		if err != nil {}
+	}
 
 	return serm
 }
@@ -75,7 +63,7 @@ func (slm *ServerlessManager) GetResourceInfo(cpuInd int, taskInd int, status in
 	util.PrintInfo("[info] ----------------  Serverless App Info  ----------------")
 	switch status {
 	case RUNNING:
-		GetAppResourceInfo(slm.tasksRunning[cpuInd][taskInd].containerId)
+		GetAppResourceInfo(slm.tasksRunning[cpuInd][taskInd].ContainerId)
 	default:
 		util.PrintInfo("[info] This task is not running")
 	}
@@ -86,25 +74,31 @@ func (slm *ServerlessManager) GetResourceInfo(cpuInd int, taskInd int, status in
 func (slm *ServerlessManager) StartTask(cpu int) {
 	slm.mu.Lock()
 	defer slm.mu.Unlock()
+	if len(slm.tasksRunning[cpu]) == slm.cpuTasksLimits[cpu] {
+		return
+	}
 	items, _ := slm.taskWaitQueue.Poll(1, 1)
 	task, _ := items[0].(Task)
-	task.cpuSet = cpu
-	task.containerId = slm.launchTask(task.imageName, task.name, task.cpuSet)
+	task.CpuSet = cpu
+	task.ContainerId = slm.launchTask(&task)
 	slm.tasksRunning[cpu] = append(slm.tasksRunning[cpu], task)
-	util.PrintInfo("[info] ----------  start serverless task: %s | cpu (%d) ----------", task.name, cpu)
+	util.PrintInfo("[info] ----------  start serverless task: %s | cpu (%d) ---------- %v", task.Name, cpu, time.Now().Unix())
 }
 
 // start the containers stopped before from queue
 func (slm *ServerlessManager) ContinueTask(cpu int) {
 	slm.mu.Lock()
 	defer slm.mu.Unlock()
+	if len(slm.tasksRunning[cpu]) == slm.cpuTasksLimits[cpu] {
+		return
+	}
 	items, _ := slm.taskContinueQueue.Poll(1, 1)
 	task, _ := items[0].(Task)
-	task.cpuSet = cpu
+	task.CpuSet = cpu
+	UpdateContainerCpuSetsById(task.ContainerId, strconv.Itoa(cpu))
+	StartContainerById(task.ContainerId)
 	slm.tasksRunning[cpu] = append(slm.tasksRunning[cpu], task)
-	UpdateContainerCpuSetsById(task.containerId, strconv.Itoa(cpu))
-	StartContainerById(task.containerId)
-	util.PrintInfo("[info] ----------  continue serverless task: %s | cpu (%d) ----------", task.name, cpu)
+	util.PrintInfo("[info] ----------  continue serverless task: %s | cpu (%d) ---------- %v", task.Name, cpu, time.Now().Unix())
 }
 
 func (slm *ServerlessManager) UpdateTask() {
@@ -115,21 +109,34 @@ func (slm *ServerlessManager) StopTask(cpuInd int) {
 	slm.mu.Lock()
 	defer slm.mu.Unlock()
 	for _, task := range slm.tasksRunning[cpuInd] {
-		StopContainerById(task.containerId, 2*time.Second)
-		task.status = STOPPED
+		StopContainerById(task.ContainerId, 2*time.Second)
+		task.Status = STOPPED
 		slm.taskContinueQueue.Put(task)
-		util.PrintInfo("[info] ----------  stop serverless task: %s | cpu (%d) ------------", task.name, cpuInd)
+		util.PrintInfo("[info] ----------  stop serverless task: %s | cpu (%d) ------------ %v", task.Name, cpuInd, time.Now().Unix())
 	}
 	slm.tasksRunning[cpuInd] = make([]Task, 0)
 }
 
-func (slm *ServerlessManager) launchTask(imageName string, containerName string, cpu int) string {
-	util.PrintInfo("[info] ----------------  launch serverless task  ----------------")
-	id := CreateContainerByImageName(containerName, &container.Config{
-		Image: imageName,
+func (slm *ServerlessManager) KillTask(cpuInd int) {
+	slm.mu.Lock()
+	defer slm.mu.Unlock()
+	for _, task := range slm.tasksRunning[cpuInd] {
+		KillContainerById(task.ContainerId)
+		task.Status = STOPPED
+		slm.taskContinueQueue.Put(task)
+		util.PrintInfo("[info] ----------  kill serverless task: %s | cpu (%d) ------------ %v", task.Name, cpuInd, time.Now().Unix())
+	}
+	slm.tasksRunning[cpuInd] = make([]Task, 0)
+}
+
+func (slm *ServerlessManager) launchTask(task *Task) string {
+	// util.PrintInfo("[info] ----------------  launch serverless task  ----------------")
+	id := CreateContainerByImageName(task.Name, &container.Config{
+		Image: task.ImageName,
+		Cmd: task.Cmd,
 	}, &container.HostConfig{
 		Resources: container.Resources{
-			CpusetCpus: strconv.Itoa(cpu),
+			CpusetCpus: strconv.Itoa(task.CpuSet),
 		},
 	})
 	return id
