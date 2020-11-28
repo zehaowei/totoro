@@ -1,10 +1,12 @@
 package totoro
 
 import (
+	"fmt"
 	"time"
 )
 
 const MonitorInterval = 2500 * time.Millisecond
+const HeartbeatInterval = 1000 * time.Millisecond
 
 type Totoro struct {
 	mainAppManager 		*MainAppManager
@@ -26,6 +28,7 @@ func MakeTotoro() *Totoro {
 func (ttr *Totoro) Start(notify chan struct{}) {
 	ttr.mainAppManager.LaunchMainApp()
 	go ttr.monitorMainApp()
+	//go ttr.monitorCpuUsage()
 }
 
 func (ttr *Totoro) monitorMainApp() {
@@ -33,7 +36,7 @@ func (ttr *Totoro) monitorMainApp() {
 	for {
 		select {
 			case <- timer.C:
-				go ttr.collectResourceInfo()
+				go ttr.triggerPolicy()
 				timer.Reset(MonitorInterval)
 			case <- ttr.shutdown:
 				return
@@ -41,8 +44,26 @@ func (ttr *Totoro) monitorMainApp() {
 	}
 }
 
-func (ttr *Totoro) collectResourceInfo() {
+func (ttr *Totoro) triggerPolicy() {
 	cpuUsage, _ := ttr.mainAppManager.GetResourceInfo()
 	//ttr.policyEngine.PolicyWithoutTask(cpuUsage)
 	ttr.policyEngine.SimplePolicy(cpuUsage)
+}
+
+func (ttr *Totoro) monitorCpuUsage() {
+	timer := time.NewTimer(HeartbeatInterval)
+	for {
+		select {
+		case <- timer.C:
+			go ttr.getResourceInfo()
+			timer.Reset(HeartbeatInterval)
+		case <- ttr.shutdown:
+			return
+		}
+	}
+}
+
+func (ttr *Totoro) getResourceInfo() {
+	cpuUsage, _ := ttr.mainAppManager.GetResourceInfo()
+	fmt.Printf("%f %v\n", cpuUsage, time.Now().Unix())
 }

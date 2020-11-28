@@ -18,7 +18,7 @@ const (
 )
 
 type ServerlessManager struct {
-	tasksRunning		map[int][]Task		// tasks is running
+	tasksRunning		map[int][]Task		// tasks are running
 	taskContinueQueue 	*queue.Queue		// tasks wait to be restarted
 	taskWaitQueue 		*queue.Queue		// tasks wait to be executed
 	taskLoader			*TaskLoader
