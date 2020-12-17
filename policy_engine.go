@@ -1,6 +1,7 @@
 package totoro
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -8,7 +9,6 @@ import (
 )
 
 const (
-	CoreNums int = 8
 	UpBase	 float64 = 70
 	OffSet	 float64 = 5
 	Diff	 float64 = 20
@@ -20,6 +20,9 @@ type PolicyEngine struct {
 	coreNums 		int
 	upThreshold 	[]float64
 	downThreshold 	[]float64
+
+	timestamps		[]int64
+	nums			int
 }
 
 func MakePolicyEngine(ttr *Totoro) *PolicyEngine {
@@ -38,6 +41,11 @@ func MakePolicyEngine(ttr *Totoro) *PolicyEngine {
 	}
 	pe.downThreshold[pe.coreNums-1] = 100 * float64(CoreNums)
 
+	pe.timestamps = make([]int64, CoreNums-1)
+	for i := 0; i <= CoreNums-2; i++ {
+		pe.timestamps[i] = -1
+	}
+	pe.nums = 0
 	return pe
 }
 
@@ -48,6 +56,7 @@ func (pe *PolicyEngine) PolicyWithoutTask(cpuUsage float64) {
 	for i := 1; i <= pe.coreNums; i++ {
 		if cpuUsage >= pe.upThreshold[i-1] && cpuUsage <= pe.downThreshold[i-1] && cpuNums != i {
 			util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
+
 			if i == 1 {
 				pe.ttr.mainAppManager.UpdateCpuSet("0")
 			} else {
@@ -55,42 +64,18 @@ func (pe *PolicyEngine) PolicyWithoutTask(cpuUsage float64) {
 				pe.ttr.mainAppManager.UpdateCpuSet(cpuSet)
 			}
 			pe.ttr.mainAppManager.cpuNums = i
-			util.PrintInfo("[time] --- complete policy for main app --- %v", time.Now().Unix())
-		}
-	}
-}
 
-func (pe *PolicyEngine) PolicyWithoutTask2(cpuUsage float64) {
-	pe.mu.Lock()
-	defer pe.mu.Unlock()
-	cpuNums := pe.ttr.mainAppManager.cpuNums
-	if cpuUsage <= 50 {
-		if cpuNums > 1 {
-			util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
-			pe.ttr.mainAppManager.UpdateCpuSet("0")
-			pe.ttr.mainAppManager.cpuNums = 1
-			util.PrintInfo("[time] --- complete policy for main app --- %v", time.Now().Unix())
-		}
-	} else if cpuUsage > 70 && cpuUsage <= 140 {
-		if cpuNums != 2 {
-			util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
-			pe.ttr.mainAppManager.UpdateCpuSet("0-1")
-			pe.ttr.mainAppManager.cpuNums = 2
-			util.PrintInfo("[time] --- complete policy for main app --- %v", time.Now().Unix())
-		}
-	} else if cpuUsage > 150 && cpuUsage <= 240 {
-		if cpuNums != 3 {
-			util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
-			pe.ttr.mainAppManager.UpdateCpuSet("0-2")
-			pe.ttr.mainAppManager.cpuNums = 3
-			util.PrintInfo("[time] --- complete policy for main app --- %v", time.Now().Unix())
-		}
-	} else if cpuUsage > 250 {
-		if cpuNums != 4 {
-			util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
-			pe.ttr.mainAppManager.UpdateCpuSet("0-3")
-			pe.ttr.mainAppManager.cpuNums = 4
-			util.PrintInfo("[time] --- complete policy for main app --- %v", time.Now().Unix())
+			// for information collecting
+			if i > 1 && pe.timestamps[i-2] == -1 {
+				pe.timestamps[i-2] = time.Now().Unix()
+				pe.nums++
+				for _,v := range pe.timestamps {
+					fmt.Print(v)
+					fmt.Print(",")
+				}
+				fmt.Println()
+			}
+			//util.PrintInfo("[time] --- complete policy for main app --- %v", time.Now().Unix())
 		}
 	}
 }
@@ -107,6 +92,7 @@ func (pe *PolicyEngine) SimplePolicy(cpuUsage float64) {
 			}
 			if cpuNums != i {
 				util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
+
 				pe.killServerless(cpus)
 				if i == 1 {
 					pe.ttr.mainAppManager.UpdateCpuSet("0")
@@ -115,60 +101,20 @@ func (pe *PolicyEngine) SimplePolicy(cpuUsage float64) {
 					pe.ttr.mainAppManager.UpdateCpuSet(cpuSet)
 				}
 				pe.ttr.mainAppManager.cpuNums = i
-				util.PrintInfo("[time] --- complete policy for main app --- %v", time.Now().Unix())
+
+				if i > 1 && pe.timestamps[i-2] == -1 {
+					pe.timestamps[i-2] = time.Now().Unix()
+					pe.nums++
+					for _,v := range pe.timestamps {
+						fmt.Print(v)
+						fmt.Print(",")
+					}
+					fmt.Println()
+				}
+				//util.PrintInfo("[time] --- complete policy for main app --- %v", time.Now().Unix())
 			} else {
 				pe.startServerless(cpus)
 			}
-		}
-	}
-}
-
-func (pe *PolicyEngine) SimplePolicy2(cpuUsage float64) {
-	pe.mu.Lock()
-	defer pe.mu.Unlock()
-	cpuNums := pe.ttr.mainAppManager.cpuNums
-	if cpuUsage <= 50 {
-		cpus := []bool{true, false, false, false}
-		if cpuNums > 1 {
-			util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
-			pe.ttr.mainAppManager.UpdateCpuSet("0")
-			pe.ttr.mainAppManager.cpuNums = 1
-			util.PrintInfo("[time] --- complete policy for main app --- %v", time.Now().Unix())
-		} else {
-			pe.startServerless(cpus)
-		}
-	} else if cpuUsage > 70 && cpuUsage <= 140 {
-		cpus := []bool{true, true, false, false}
-		if cpuNums != 2 {
-			util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
-			pe.killServerless(cpus)
-			pe.ttr.mainAppManager.UpdateCpuSet("0-1")
-			pe.ttr.mainAppManager.cpuNums = 2
-			util.PrintInfo("[time] --- complete policy for main app --- %v", time.Now().Unix())
-		} else {
-			pe.startServerless(cpus)
-		}
-	} else if cpuUsage > 150 && cpuUsage <= 240 {
-		cpus := []bool{true, true, true, false}
-		if cpuNums != 3 {
-			util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
-			pe.killServerless(cpus)
-			pe.ttr.mainAppManager.UpdateCpuSet("0-2")
-			pe.ttr.mainAppManager.cpuNums = 3
-			util.PrintInfo("[time] --- complete policy for main app --- %v", time.Now().Unix())
-		} else {
-			pe.startServerless(cpus)
-		}
-	} else if cpuUsage > 250 {
-		cpus := []bool{true, true, true, true}
-		if cpuNums != 4 {
-			util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
-			pe.killServerless(cpus)
-			pe.ttr.mainAppManager.UpdateCpuSet("0-3")
-			pe.ttr.mainAppManager.cpuNums = 4
-			util.PrintInfo("[time] --- complete policy for main app --- %v", time.Now().Unix())
-		} else {
-			pe.startServerless(cpus)
 		}
 	}
 }
@@ -182,8 +128,8 @@ func (pe* PolicyEngine) killServerless(cpus []bool) {
 }
 
 func (pe* PolicyEngine) startServerless(cpus []bool) {
-	for i, occupied := range cpus {
-		if !occupied {
+	for i := len(cpus)-1; i >= 0; i-- {
+		if !cpus[i] {
 			if pe.ttr.serverlessManager.HasContinueTasks() {
 				pe.ttr.serverlessManager.ContinueTask(i)
 			} else if pe.ttr.serverlessManager.HasWaitTasks() {

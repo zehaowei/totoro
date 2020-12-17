@@ -39,17 +39,19 @@ type Task struct {
 
 func MakeServerlessManager() *ServerlessManager {
 	serm := new(ServerlessManager)
-	serm.tasksRunning = make(map[int][]Task, 4)
-	for i := 0; i <= 3; i++ {
+	serm.tasksRunning = make(map[int][]Task, CoreNums)
+	for i := 0; i < CoreNums; i++ {
 		serm.tasksRunning[i] = make([]Task, 0)
 	}
 	serm.taskContinueQueue = new(queue.Queue)
 	serm.taskWaitQueue = new(queue.Queue)
-	serm.cpuTasksLimits = map[int]int {
-		0: 0, 1: 1, 2: 1, 3: 1,
-	}
-	serm.taskLoader = MakeTaskLoader()
 
+	serm.cpuTasksLimits = make(map[int]int, CoreNums)
+	for i := 0; i < CoreNums; i++ {
+		serm.cpuTasksLimits[i] = 1
+	}
+
+	serm.taskLoader = MakeTaskLoader()
 	tasks := serm.taskLoader.loadTasks(CPU)
 	for _, tsk := range tasks {
 		err := serm.taskWaitQueue.Put(tsk)
