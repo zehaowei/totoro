@@ -18,7 +18,7 @@ func MakeMainAppManager(imageName string, appName string) *MainAppManager {
 	mam := new (MainAppManager)
 	mam.appName = appName
 	mam.imageName = imageName
-	mam.cpuNums = 1
+	mam.cpuNums = 2
 
 	return mam
 }
@@ -38,7 +38,7 @@ func (mam *MainAppManager) LaunchMainApp() {
 	//})
 
 	mam.containerId = GetContainerIdByName("/"+mam.appName)
-	UpdateContainerCpuSetsById(mam.containerId, "0")
+	// UpdateContainerCpuSetsById(mam.containerId, "0")
 	// UpdateContainerCpuQuotaById(mam.containerId, 50000)
 }
 

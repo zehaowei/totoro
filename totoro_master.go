@@ -28,8 +28,8 @@ func MakeTotoro() *Totoro {
 
 func (ttr *Totoro) Start(notify chan struct{}) {
 	ttr.mainAppManager.LaunchMainApp()
-	//go ttr.monitorMainApp()
-	go ttr.monitorCpuUsage()
+	go ttr.monitorMainApp()
+	//go ttr.monitorCpuUsage()
 }
 
 func (ttr *Totoro) monitorMainApp() {
@@ -47,8 +47,9 @@ func (ttr *Totoro) monitorMainApp() {
 
 func (ttr *Totoro) triggerPolicy() {
 	cpuUsage, _ := ttr.mainAppManager.GetResourceInfo()
-	ttr.policyEngine.PolicyWithoutTask(cpuUsage)
+	//ttr.policyEngine.PolicyWithoutTask(cpuUsage)
 	//ttr.policyEngine.SimplePolicy(cpuUsage)
+	ttr.policyEngine.SecondPolicyWithoutTask(cpuUsage)
 }
 
 func (ttr *Totoro) monitorCpuUsage() {
