@@ -39,16 +39,24 @@ func GetContainerIdByName(name string) string {
 		}
 	}
 
+	e := cli.Close()
+	if e != nil {
+		util.PrintInfo("[error] cli connection close err")
+	}
 	return ""
 }
 
-func InspectContainerById(containerId string) string {
+func InspectContainerById(containerId string) (string, int) {
 	ctx, cli := initCtxAndCli()
 
 	info, _ := cli.ContainerInspect(ctx, containerId)
 	status := info.ContainerJSONBase.State
 
-	return status.Status
+	e := cli.Close()
+	if e != nil {
+		util.PrintInfo("[error] cli connection close err")
+	}
+	return status.Status, status.ExitCode
 }
 
 func GetAppResourceInfo(containerId string) (float64, float64){
@@ -88,8 +96,25 @@ func GetAppResourceInfo(containerId string) (float64, float64){
 		//util.PrintInfo("[info] usedMemory: %d", usedMemory)
 		//util.PrintInfo("[info] availableMemory: %d", availableMemory)
 
+		er := info.Body.Close()
+		if er != nil {
+			util.PrintInfo("[error] info body connection close err")
+		}
+		e := cli.Close()
+		if e != nil {
+			util.PrintInfo("[error] cli connection close err")
+		}
+
 		return cpuUsage, memoryUsage
 	} else {
+		er := info.Body.Close()
+		if er != nil {
+			util.PrintInfo("[error] info body connection close err")
+		}
+		e := cli.Close()
+		if e != nil {
+			util.PrintInfo("[error] cli connection close err")
+		}
 		util.PrintErr("[error] (cli.ContainerStats) return nil Body")
 	}
 	return 0.0, 0.0
@@ -108,6 +133,11 @@ func CreateContainerByImageName(containerName string, config *container.Config, 
 	}
 
 	//util.PrintInfo("[info] container (%s) is running", containerName)
+
+	e := cli.Close()
+	if e != nil {
+		util.PrintInfo("[error] cli connection close err")
+	}
 	return resp.ID
 }
 
@@ -124,6 +154,11 @@ func UpdateContainerCpuShareById(containerId string, cpuShare int64) {
 		fmt.Println(err)
 	} else {
 		util.PrintInfo("[info] container updated")
+	}
+
+	e := cli.Close()
+	if e != nil {
+		util.PrintInfo("[error] cli connection close err")
 	}
 }
 
@@ -142,6 +177,11 @@ func UpdateContainerCpuQuotaById(containerId string, cpuQuota int64) {
 	} else {
 		util.PrintInfo("[info] container updated: cpuQuota %d", cpuQuota)
 	}
+
+	e := cli.Close()
+	if e != nil {
+		util.PrintInfo("[error] cli connection close err")
+	}
 }
 
 func UpdateContainerCpuSetsById(containerId string, cpuSets string) {
@@ -158,6 +198,11 @@ func UpdateContainerCpuSetsById(containerId string, cpuSets string) {
 	} else {
 		//util.PrintInfo("[info] container cpuSets updated: cpuSets { %s }", cpuSets)
 	}
+
+	e := cli.Close()
+	if e != nil {
+		util.PrintInfo("[error] cli connection close err")
+	}
 }
 
 func StopContainerById(containerId string, timeout time.Duration) {
@@ -168,6 +213,11 @@ func StopContainerById(containerId string, timeout time.Duration) {
 		util.PrintErr("[error] container (%s) stop error", containerId)
 	} else {
 		//util.PrintInfo("[info] container stopped")
+	}
+
+	e := cli.Close()
+	if e != nil {
+		util.PrintInfo("[error] cli connection close err")
 	}
 }
 
@@ -180,6 +230,11 @@ func KillContainerById(containerId string) {
 	} else {
 		//util.PrintInfo("[info] container killed")
 	}
+
+	e := cli.Close()
+	if e != nil {
+		util.PrintInfo("[error] cli connection close err")
+	}
 }
 
 func StartContainerById(containerId string) {
@@ -189,6 +244,11 @@ func StartContainerById(containerId string) {
 		panic(err)
 	} else {
 		//util.PrintInfo("[info] container started")
+	}
+
+	e := cli.Close()
+	if e != nil {
+		util.PrintInfo("[error] cli connection close err")
 	}
 }
 
@@ -200,5 +260,10 @@ func RemoveContainerById(containerId string) {
 		util.PrintErr("[error] container (%s) remove error", containerId)
 	} else {
 		util.PrintInfo("[info] container removed")
+	}
+
+	e := cli.Close()
+	if e != nil {
+		util.PrintInfo("[error] cli connection close err")
 	}
 }

@@ -1,0 +1,57 @@
+[
+  {
+    "JobName": "job1",
+    "StartTime": 50,
+    "Tasks": [
+      {
+        "Name": "cpu-1",
+        "ImageName": "zehwei/ibench",
+        "Cmd": ["./cpu"]
+      }
+    ]
+  },
+  {
+    "JobName": "job2",
+    "StartTime": 60,
+    "Tasks": [
+      {
+        "Name": "cpu-2",
+        "ImageName": "zehwei/ibench",
+        "Cmd": ["./cpu"]
+      }
+    ]
+  },
+  {
+    "JobName": "job3",
+    "StartTime": 65,
+    "Tasks": [
+      {
+        "Name": "cpu-3",
+        "ImageName": "zehwei/ibench",
+        "Cmd": ["./cpu"]
+      }
+    ]
+  },
+  {
+    "JobName": "job4",
+    "StartTime": 65,
+    "Tasks": [
+      {
+        "Name": "l3-1",
+        "ImageName": "zehwei/ibench",
+        "Cmd": ["./l3"]
+      }
+    ]
+  },
+  {
+    "JobName": "job5",
+    "StartTime": 60,
+    "Tasks": [
+      {
+        "Name": "mem-1",
+        "ImageName": "zehwei/ibench",
+        "Cmd": ["./memBw"]
+      }
+    ]
+  }
+]

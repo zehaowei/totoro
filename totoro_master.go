@@ -5,33 +5,44 @@ import (
 	"time"
 )
 
-const CoreNums int = 8
-const MonitorInterval = 2500 * time.Millisecond
-const HeartbeatInterval = 1000 * time.Millisecond
-
+/*
+ * the master of the entire system
+ */
 type Totoro struct {
-	mainAppManager 		*MainAppManager
-	serverlessManager 	*ServerlessManager
-	policyEngine		*PolicyEngine
-	shutdown			chan struct{}
+	mainAppManager 		*MainAppManager  	// control memcached
+	jobScheduler   		*JobScheduler    	// job scheduling, receive requests from client, push tasks to TaskScheduler
+	taskScheduler  		*TaskScheduler   	// task scheduling, responsible for task container management
+	policyEngine   		*PolicyEngine		// send instructions to MainAppManager and TaskScheduler
+	requestSimulator 	*RequestSimulator	// simulate clients to send serverless job to Totoro
+	shutdown       		chan struct{}
 }
 
+/*
+ * constructor
+ */
 func MakeTotoro() *Totoro {
 	totoro := new(Totoro)
 	totoro.mainAppManager = MakeMainAppManager("zehwei/memcached", "memcached")
-	totoro.serverlessManager = MakeServerlessManager()
 	totoro.policyEngine = MakePolicyEngine(totoro)
+	totoro.taskScheduler = MakeTaskScheduler()
+	totoro.jobScheduler = MakeJobScheduler(totoro.taskScheduler)
+	totoro.requestSimulator = MakeRequestSimulator(totoro.jobScheduler)
 	totoro.shutdown = make(chan struct{})
-
 	return totoro
 }
 
+/*
+ * start the system
+ */
 func (ttr *Totoro) Start(notify chan struct{}) {
 	ttr.mainAppManager.LaunchMainApp()
 	go ttr.monitorMainApp()
 	//go ttr.monitorCpuUsage()
 }
 
+/*
+ * monitor the situation of memcached and periodically trigger policy checking
+ */
 func (ttr *Totoro) monitorMainApp() {
 	timer := time.NewTimer(MonitorInterval)
 	for {
@@ -45,6 +56,9 @@ func (ttr *Totoro) monitorMainApp() {
 	}
 }
 
+/*
+ * trigger a specific policy to determine the resources allocation
+ */
 func (ttr *Totoro) triggerPolicy() {
 	cpuUsage, _ := ttr.mainAppManager.GetResourceInfo()
 	//ttr.policyEngine.PolicyWithoutTask(cpuUsage)
@@ -52,6 +66,10 @@ func (ttr *Totoro) triggerPolicy() {
 	ttr.policyEngine.SecondPolicyWithoutTask(cpuUsage)
 }
 
+/*
+ * For experiment
+ * Monitor cpu usage every second to determine the relationship between latency and cpu usage
+ */
 func (ttr *Totoro) monitorCpuUsage() {
 	timer := time.NewTimer(HeartbeatInterval)
 	for {

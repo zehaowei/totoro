@@ -11,17 +11,17 @@ const (
 	L2			int = 5
 )
 
-type TaskLoader struct {
+type JobLoader struct {
 	tasks []Task
 }
 
-func MakeTaskLoader() *TaskLoader {
-	tl := new(TaskLoader)
+func MakeJobLoader() *JobLoader {
+	tl := new(JobLoader)
 	tl.tasks = nil
 	return tl
 }
 
-func (tl *TaskLoader) loadTasks(task int) []Task {
+func (tl *JobLoader) loadTasks(task int) []Task {
 	duration := "300"
 	taskNum := 5
 	if task == L3 {

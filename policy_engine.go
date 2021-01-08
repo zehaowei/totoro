@@ -10,21 +10,18 @@ import (
 )
 
 const (
-	UpBase	 	float64 = 70
-	OffSet	 	float64 = 5
-	Diff	 	float64 = 20
-
 	Proportion	float64 = 0.625
 )
 
+/*
+ * determine the cpu resource allocation of main app and serverless tasks
+ */
 type PolicyEngine struct {
 	ttr 			*Totoro
 	mu				sync.Mutex
 	procNums 		int				// number of hyperthread, one core has two hyperthread
 	coreNums		int				// number of physical cores
 
-	upThreshold 	[]float64
-	downThreshold 	[]float64
 	timestamps		[]int64			// just for experiments to collect statistics
 	nums			int				// just for experiments to collect statistics
 	
@@ -35,33 +32,19 @@ type PolicyEngine struct {
 	timestamps2		[]int64			// just for experiments to collect statistics
 }
 
+/*
+ * constructor
+ */
 func MakePolicyEngine(ttr *Totoro) *PolicyEngine {
 	pe := new(PolicyEngine)
 	pe.ttr = ttr
 	pe.coreNums = CoreNums
 	pe.procNums = CoreNums*2
-	//pe.upThreshold = make([]float64, pe.procNums)
-	//pe.downThreshold = make([]float64, pe.procNums)
 
 	pe.inflateThresh = make([]float64, pe.coreNums+1)
 	pe.deflateThresh = make([]float64, pe.coreNums+1)
 	pe.inflateThresh2 = make([]float64, pe.coreNums+1)
 	pe.deflateThresh2 = make([]float64, pe.coreNums+1)
-
-	//offset := 0.0
-	//pe.upThreshold[0] = 0
-	//for i := 1; i < pe.procNums; i++ {
-	//	pe.upThreshold[i] = UpBase * float64(i) + offset
-	//	pe.downThreshold[i-1] = UpBase * float64(i) + offset - Diff
-	//	offset += OffSet * float64(i+1)
-	//}
-	//pe.downThreshold[pe.procNums-1] = 100 * float64(CoreNums)
-	//
-	//pe.timestamps = make([]int64, CoreNums-1)
-	//for i := 0; i <= CoreNums-2; i++ {
-	//	pe.timestamps[i] = -1
-	//}
-	//pe.nums = 0
 
 	for i := 1; i <= pe.coreNums; i++ {
 		if i == 1 {
@@ -88,96 +71,10 @@ func MakePolicyEngine(ttr *Totoro) *PolicyEngine {
 	return pe
 }
 
-func (pe *PolicyEngine) PolicyWithoutTask(cpuUsage float64) {
-	pe.mu.Lock()
-	defer pe.mu.Unlock()
-	cpuNums := pe.ttr.mainAppManager.cpuNums
-	for i := 1; i <= pe.procNums; i++ {
-		if cpuUsage >= pe.upThreshold[i-1] && cpuUsage <= pe.downThreshold[i-1] && cpuNums != i {
-			util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
-
-			if i == 1 {
-				pe.ttr.mainAppManager.UpdateCpuSet("0")
-			} else {
-				cpuSet := "0-" + strconv.Itoa(i-1)
-				pe.ttr.mainAppManager.UpdateCpuSet(cpuSet)
-			}
-			pe.ttr.mainAppManager.cpuNums = i
-
-			// for information collecting
-			if i > 1 && pe.timestamps[i-2] == -1 {
-				pe.timestamps[i-2] = time.Now().Unix()
-				pe.nums++
-				for _,v := range pe.timestamps {
-					fmt.Print(v)
-					fmt.Print(",")
-				}
-				fmt.Println()
-			}
-			//util.PrintInfo("[time] --- complete policy for main app --- %v", time.Now().Unix())
-		}
-	}
-}
-
-func (pe *PolicyEngine) SimplePolicy(cpuUsage float64) {
-	pe.mu.Lock()
-	defer pe.mu.Unlock()
-	cpuNums := pe.ttr.mainAppManager.cpuNums
-	for i := 1; i <= pe.procNums; i++ {
-		if cpuUsage >= pe.upThreshold[i-1] && cpuUsage <= pe.downThreshold[i-1] {
-			cpus := make([]bool, pe.procNums)
-			for j := 0; j <= i-1; j++ {
-				cpus[j] = true
-			}
-			if cpuNums != i {
-				util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
-
-				pe.killServerless(cpus)
-				if i == 1 {
-					pe.ttr.mainAppManager.UpdateCpuSet("0")
-				} else {
-					cpuSet := "0-" + strconv.Itoa(i-1)
-					pe.ttr.mainAppManager.UpdateCpuSet(cpuSet)
-				}
-				pe.ttr.mainAppManager.cpuNums = i
-
-				if i > 1 && pe.timestamps[i-2] == -1 {
-					pe.timestamps[i-2] = time.Now().Unix()
-					pe.nums++
-					for _,v := range pe.timestamps {
-						fmt.Print(v)
-						fmt.Print(",")
-					}
-					fmt.Println()
-				}
-				//util.PrintInfo("[time] --- complete policy for main app --- %v", time.Now().Unix())
-			} else {
-				pe.startServerless(cpus)
-			}
-		}
-	}
-}
-
-func (pe* PolicyEngine) killServerless(cpus []bool) {
-	for i, occupied := range cpus {
-		if occupied {
-			pe.ttr.serverlessManager.KillTask(i)
-		}
-	}
-}
-
-func (pe* PolicyEngine) startServerless(cpus []bool) {
-	for i := len(cpus)-1; i >= 0; i-- {
-		if !cpus[i] {
-			if pe.ttr.serverlessManager.HasContinueTasks() {
-				pe.ttr.serverlessManager.ContinueTask(i)
-			} else if pe.ttr.serverlessManager.HasWaitTasks() {
-				pe.ttr.serverlessManager.StartTask(i)
-			}
-		}
-	}
-}
-
+/*
+ * For experiment
+ * policy without running any task
+ */
 func (pe *PolicyEngine) SecondPolicyWithoutTask(cpuUsage float64) {
 	pe.mu.Lock()
 	defer pe.mu.Unlock()
@@ -185,7 +82,7 @@ func (pe *PolicyEngine) SecondPolicyWithoutTask(cpuUsage float64) {
 
 	if cpuUsage > pe.inflateThresh[curNums] { // current cpuUsage exceeds threshold, add one more physical core
 		util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
-		pe.timestamps2 = append(pe.timestamps2, time.Now().Unix())
+		//pe.timestamps2 = append(pe.timestamps2, time.Now().Unix())
 		newNums := curNums+1
 		if cpuUsage > pe.inflateThresh2[curNums] {
 			newNums += 1
@@ -201,7 +98,7 @@ func (pe *PolicyEngine) SecondPolicyWithoutTask(cpuUsage float64) {
 
 	} else if cpuUsage < pe.deflateThresh[curNums] { // current cpuUsage is below threshold, remove one physical core
 		util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
-		pe.timestamps2 = append(pe.timestamps2, time.Now().Unix())
+		//pe.timestamps2 = append(pe.timestamps2, time.Now().Unix())
 		newNums := curNums-1
 		if cpuUsage < pe.deflateThresh2[curNums] {
 			newNums -= 1
@@ -217,11 +114,62 @@ func (pe *PolicyEngine) SecondPolicyWithoutTask(cpuUsage float64) {
 	}
 
 	// just for experiments to collect statistics
-	if cpuUsage < 10 {
+	if cpuUsage < 0 {
 		for _,v := range pe.timestamps2 {
 			fmt.Print(v)
 			fmt.Print(",")
 		}
 		fmt.Println()
 	}
+}
+
+func (pe *PolicyEngine) SecondPolicy(cpuUsage float64) {
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
+	curNums := pe.ttr.mainAppManager.cpuNums / 2
+
+	if cpuUsage > pe.inflateThresh[curNums] { // current cpuUsage exceeds threshold, add one more physical core
+		util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
+		newNums := curNums+1
+		if cpuUsage > pe.inflateThresh2[curNums] {
+			newNums += 1
+		}
+		newNums = int(math.Min(float64(newNums), float64(pe.coreNums)))
+
+		cpuSets := "0,16"
+		for k := 2; k <= newNums; k++ {
+			cpuSets += "," + strconv.Itoa((k-1)*2) + "," + strconv.Itoa((k-1)*2+16)
+		}
+		// notify taskScheduler the change of cpu allocation
+		pe.ttr.taskScheduler.Deflate(GetCpuState(newNums))
+		pe.ttr.mainAppManager.UpdateCpuSet(cpuSets)
+		pe.ttr.mainAppManager.cpuNums = newNums*2
+
+	} else if cpuUsage < pe.deflateThresh[curNums] { // current cpuUsage is below threshold, remove one physical core
+		util.PrintInfo("[time] --- trigger policy for main app (cpu: %f) --- %v", cpuUsage, time.Now().Unix())
+		newNums := curNums-1
+		if cpuUsage < pe.deflateThresh2[curNums] {
+			newNums -= 1
+		}
+		newNums = int(math.Max(float64(newNums), float64(1)))
+
+		cpuSets := "0,16"
+		for k := 2; k <= newNums; k++ {
+			cpuSets += "," + strconv.Itoa((k-1)*2) + "," + strconv.Itoa((k-1)*2+16)
+		}
+		pe.ttr.taskScheduler.Inflate(GetCpuState(newNums))
+		pe.ttr.mainAppManager.UpdateCpuSet(cpuSets)
+		pe.ttr.mainAppManager.cpuNums = newNums*2
+	}
+}
+
+func GetCpuState(newNums int) []int {
+	cpuState := make([]int, CoreNums)
+	for i := 0; i < newNums; i++ {
+		cpuState[i] = OCCUPIED
+	}
+	for i := newNums; i < CoreNums; i++ {
+		cpuState[i] = AVAILABLE
+	}
+	return cpuState
 }
