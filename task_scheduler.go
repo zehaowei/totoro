@@ -1,6 +1,7 @@
 package totoro
 
 import (
+	"fmt"
 	"github.com/Workiva/go-datastructures/queue"
 	"github.com/docker/docker/api/types/container"
 	"strconv"
@@ -26,6 +27,7 @@ type TaskScheduler struct {
 	idGenerator				*util.UUIDGenerator	// generate unique id for a task
 	mu                		sync.Mutex
 	shutdown            	chan struct{}		// do some cleaning when exit
+	shutdown2 				chan struct{}
 }
 
 /*
@@ -39,8 +41,8 @@ func MakeTaskScheduler() *TaskScheduler {
 	ts.shortTaskRunning = make(map[int][]*Task, 0)
 	// short task could run on physical core 1 - 7 (0 is always for main app)
 	for i := 1; i < CoreNums; i++ {
-		ts.shortTaskRunning[i*2] = make([]*Task, 0)
-		ts.shortTaskRunning[i*2+16] = make([]*Task, 0)
+		ts.shortTaskRunning[i*CpuSetsNum] = make([]*Task, 0)
+		ts.shortTaskRunning[i*CpuSetsNum+CpuIndexGap] = make([]*Task, 0)
 	}
 
 	ts.longTaskWaitQueue = new(queue.Queue)
@@ -48,14 +50,14 @@ func MakeTaskScheduler() *TaskScheduler {
 	ts.longTaskRunning = make(map[int][]*Task, 0)
 	// long task only run on physical core 5 - 7 (less chance to be occupied by main app)
 	for i := CoreNums/2+1; i < CoreNums; i++ {
-		ts.longTaskRunning[i*2] = make([]*Task, 0)
-		ts.longTaskRunning[i*2+16] = make([]*Task, 0)
+		ts.longTaskRunning[i*CpuSetsNum] = make([]*Task, 0)
+		ts.longTaskRunning[i*CpuSetsNum+CpuIndexGap] = make([]*Task, 0)
 	}
 
 	ts.cpuTasksLimits = make(map[int]int, 0)
 	for i := 1; i < CoreNums; i++ {
-		ts.cpuTasksLimits[i*2] = 1
-		ts.cpuTasksLimits[i*2+16] = 1
+		ts.cpuTasksLimits[i*CpuSetsNum] = 1
+		ts.cpuTasksLimits[i*CpuSetsNum+CpuIndexGap] = 1
 	}
 
 	ts.cpuStatus = make([]int, CoreNums)
@@ -65,6 +67,8 @@ func MakeTaskScheduler() *TaskScheduler {
 	}
 
 	ts.idGenerator = util.MakeUUIDGenerator(TaskIdPrefix)
+	ts.shutdown = make(chan struct{})
+	ts.shutdown2 = make(chan struct{})
 
 	go ts.monitorTasks()
 	go ts.monitorTaskStatus()
@@ -81,9 +85,7 @@ func (ts *TaskScheduler) ReceiveTask(task *Task) {
 	task.Status = WAITING
 	task.Type = ShortTask
 	err := ts.shortTaskWaitQueue.Put(task)
-	if err != nil {
-		util.PrintErr("[error] shortTaskWaitQueue put error")
-	}
+	if err != nil { util.PrintErr("[error] shortTaskWaitQueue put error") }
 }
 
 /*
@@ -100,6 +102,7 @@ func (ts *TaskScheduler) launchTask(task *Task) {
 	})
 	task.ContainerId = id
 	task.Status = RUNNING
+	util.PrintInfo("[info] -- launch task on cpu %d --", task.CpuSet)
 }
 
 /*
@@ -117,24 +120,24 @@ func (ts *TaskScheduler) continueTask(task *Task) {
 func (ts *TaskScheduler) killTaskByCore(cpuInd int) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
-	for _, task := range ts.shortTaskRunning[cpuInd*2] {
+	for _, task := range ts.shortTaskRunning[cpuInd*CpuSetsNum] {
 		ts.killTask(task)
 	}
-	for _, task := range ts.shortTaskRunning[cpuInd*2+16] {
+	for _, task := range ts.shortTaskRunning[cpuInd*CpuSetsNum+CpuIndexGap] {
 		ts.killTask(task)
 	}
-	ts.shortTaskRunning[cpuInd*2] = make([]*Task, 0)
-	ts.shortTaskRunning[cpuInd*2+16] = make([]*Task, 0)
+	ts.shortTaskRunning[cpuInd*CpuSetsNum] = make([]*Task, 0)
+	ts.shortTaskRunning[cpuInd*CpuSetsNum+CpuIndexGap] = make([]*Task, 0)
 
 	if cpuInd >= CoreNums/2+1 {
-		for _, task := range ts.longTaskRunning[cpuInd*2] {
+		for _, task := range ts.longTaskRunning[cpuInd*CpuSetsNum] {
 			ts.killTask(task)
 		}
-		for _, task := range ts.longTaskRunning[cpuInd*2+16] {
+		for _, task := range ts.longTaskRunning[cpuInd*CpuSetsNum+CpuIndexGap] {
 			ts.killTask(task)
 		}
-		ts.longTaskRunning[cpuInd*2] = make([]*Task, 0)
-		ts.longTaskRunning[cpuInd*2+16] = make([]*Task, 0)
+		ts.longTaskRunning[cpuInd*CpuSetsNum] = make([]*Task, 0)
+		ts.longTaskRunning[cpuInd*CpuSetsNum+CpuIndexGap] = make([]*Task, 0)
 	}
 }
 
@@ -163,9 +166,7 @@ func (ts *TaskScheduler) killTask(task *Task) {
 	} else {
 		err = ts.shortTaskContinueQueue.Put(task)
 	}
-	if err != nil {
-		util.PrintErr("[error] killTask: queue put error")
-	}
+	if err != nil { util.PrintErr("[error] killTask: queue put error") }
 }
 
 /*
@@ -228,7 +229,7 @@ func (ts *TaskScheduler) scheduleTasks() {
 	if cpuOccupiedNums <= LowHighLoadThreshold {
 		// Firstly run long term tasks on core 5-7 (long term task has failed to execute for several times)
 		for i := CoreNums-1; i >= CoreNums/2+1; i-- {
-			cpus := []int{i*2, i*2+16}
+			cpus := []int{i*CpuSetsNum, i*CpuSetsNum+CpuIndexGap}
 			// check the two proc of physical core i
 			for _, ind := range cpus {
 				taskNum := len(ts.shortTaskRunning[ind]) + len(ts.longTaskRunning[ind])
@@ -244,7 +245,7 @@ func (ts *TaskScheduler) scheduleTasks() {
 	}
 	// under high pressure, stop running long term tasks, only run short term tasks
 	for i := CoreNums-1; i >= 1; i-- {
-		cpus := []int{i*2, i*2+16}
+		cpus := []int{i*CpuSetsNum, i*CpuSetsNum+CpuIndexGap}
 		for _, ind := range cpus {
 			taskNum := len(ts.shortTaskRunning[ind])
 			if i >= CoreNums/2+1 {
@@ -265,6 +266,7 @@ func (ts *TaskScheduler) scheduleTasks() {
 					ts.launchTask(task)
 				}
 				if task != nil {
+					fmt.Printf("add task shortTaskRunning[%d] %s \n", ind, task.Name)
 					ts.shortTaskRunning[ind] = append(ts.shortTaskRunning[ind], task)
 				}
 			}
@@ -282,7 +284,7 @@ func (ts *TaskScheduler) monitorTaskStatus() {
 		case <- timer.C:
 			go ts.checkTaskStatus()
 			timer.Reset(TaskStatusCheckInterval)
-		case <- ts.shutdown:
+		case <- ts.shutdown2:
 			return
 		}
 	}
@@ -292,6 +294,8 @@ func (ts *TaskScheduler) monitorTaskStatus() {
  * check tasks in short and long term running list
  */
 func (ts *TaskScheduler) checkTaskStatus() {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
 	ts.checkRunningList(ts.shortTaskRunning)
 	ts.checkRunningList(ts.longTaskRunning)
 }
@@ -304,7 +308,7 @@ func (ts *TaskScheduler) checkRunningList(taskRunning map[int][]*Task) {
 		if len(tasks) != 0 {
 			for ind, task := range tasks {
 				status, code := InspectContainerById(task.ContainerId)
-				if status == "exited" && code == 1 {
+				if status == "exited" && code == 0 {
 					task.Status = COMPLETE
 					task.NotifyFinish <- struct{}{}
 					taskRunning[proc] = append(taskRunning[proc][:ind], taskRunning[proc][ind+1:]...)

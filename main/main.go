@@ -7,7 +7,7 @@ import (
 func main() {
 	ch := make(chan struct{})
 	ttr := totoro.MakeTotoro()
-	ttr.Start(ch)
+	ttr.Start()
 	for range ch{
 
 	}

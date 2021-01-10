@@ -31,7 +31,7 @@ func MakeRequestSimulator(js *JobScheduler) *RequestSimulator {
 /*
  * read json file to load jobs's information
  */
-func (rs *RequestSimulator) readJobs(filePath string) {
+func (rs *RequestSimulator) ReadJobs(filePath string) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		util.PrintErr("[error] file read err")
@@ -62,6 +62,7 @@ func (rs *RequestSimulator) readJobs(filePath string) {
 			task.Name = t.Name
 			task.ImageName = t.ImageName
 			task.Cmd = t.Cmd
+			task.NotifyFinish = make(chan struct{})
 			tasks = append(tasks, &task)
 		}
 		j.Tasks = tasks

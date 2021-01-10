@@ -18,7 +18,7 @@ func MakeMainAppManager(imageName string, appName string) *MainAppManager {
 	mam := new (MainAppManager)
 	mam.appName = appName
 	mam.imageName = imageName
-	mam.cpuNums = 16
+	mam.cpuNums = 2
 
 	return mam
 }

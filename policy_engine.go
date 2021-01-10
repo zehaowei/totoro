@@ -91,7 +91,7 @@ func (pe *PolicyEngine) SecondPolicyWithoutTask(cpuUsage float64) {
 
 		cpuSets := "0,16"
 		for k := 2; k <= newNums; k++ {
-			cpuSets += "," + strconv.Itoa((k-1)*2) + "," + strconv.Itoa((k-1)*2+16)
+			cpuSets += "," + strconv.Itoa((k-1)*2) + "," + strconv.Itoa((k-1)*2+CpuIndexGap)
 		}
 		pe.ttr.mainAppManager.UpdateCpuSet(cpuSets)
 		pe.ttr.mainAppManager.cpuNums = newNums*2
@@ -107,7 +107,7 @@ func (pe *PolicyEngine) SecondPolicyWithoutTask(cpuUsage float64) {
 
 		cpuSets := "0,16"
 		for k := 2; k <= newNums; k++ {
-			cpuSets += "," + strconv.Itoa((k-1)*2) + "," + strconv.Itoa((k-1)*2+16)
+			cpuSets += "," + strconv.Itoa((k-1)*2) + "," + strconv.Itoa((k-1)*2+CpuIndexGap)
 		}
 		pe.ttr.mainAppManager.UpdateCpuSet(cpuSets)
 		pe.ttr.mainAppManager.cpuNums = newNums*2
@@ -138,7 +138,7 @@ func (pe *PolicyEngine) SecondPolicy(cpuUsage float64) {
 
 		cpuSets := "0,16"
 		for k := 2; k <= newNums; k++ {
-			cpuSets += "," + strconv.Itoa((k-1)*2) + "," + strconv.Itoa((k-1)*2+16)
+			cpuSets += "," + strconv.Itoa((k-1)*2) + "," + strconv.Itoa((k-1)*2+CpuIndexGap)
 		}
 		// notify taskScheduler the change of cpu allocation
 		pe.ttr.taskScheduler.Deflate(GetCpuState(newNums))
@@ -155,7 +155,7 @@ func (pe *PolicyEngine) SecondPolicy(cpuUsage float64) {
 
 		cpuSets := "0,16"
 		for k := 2; k <= newNums; k++ {
-			cpuSets += "," + strconv.Itoa((k-1)*2) + "," + strconv.Itoa((k-1)*2+16)
+			cpuSets += "," + strconv.Itoa((k-1)*2) + "," + strconv.Itoa((k-1)*2+CpuIndexGap)
 		}
 		pe.ttr.taskScheduler.Inflate(GetCpuState(newNums))
 		pe.ttr.mainAppManager.UpdateCpuSet(cpuSets)

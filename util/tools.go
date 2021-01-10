@@ -1,11 +1,13 @@
 package util
 
+import "os"
+
 const (
 	MaxUint32 = 4294967295
 	DefaultUUIDCache = 128
 )
 
-
+// generate unique ID
 type UUIDGenerator struct {
 	Prefix       string
 	idGen        uint32
@@ -40,4 +42,12 @@ func (ug *UUIDGenerator) startGen() {
 func (ug *UUIDGenerator) Get() string {
 	idgen := <-ug.internalChan
 	return ug.Prefix + string(idgen)
+}
+
+func CheckFileIsExist(filename string) bool {
+	var exist = true
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		exist = false
+	}
+	return exist
 }

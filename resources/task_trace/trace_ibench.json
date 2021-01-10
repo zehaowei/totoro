@@ -1,56 +1,56 @@
 [
   {
     "JobName": "job1",
-    "StartTime": 50,
+    "StartTime": 6,
     "Tasks": [
       {
         "Name": "cpu-1",
         "ImageName": "zehwei/ibench",
-        "Cmd": ["./cpu"]
+        "Cmd": ["./cpu", "5"]
       }
     ]
   },
   {
     "JobName": "job2",
-    "StartTime": 60,
+    "StartTime": 10,
     "Tasks": [
       {
         "Name": "cpu-2",
         "ImageName": "zehwei/ibench",
-        "Cmd": ["./cpu"]
+        "Cmd": ["./cpu", "25"]
       }
     ]
   },
   {
     "JobName": "job3",
-    "StartTime": 65,
+    "StartTime": 17,
     "Tasks": [
       {
         "Name": "cpu-3",
         "ImageName": "zehwei/ibench",
-        "Cmd": ["./cpu"]
+        "Cmd": ["./cpu", "6"]
       }
     ]
   },
   {
     "JobName": "job4",
-    "StartTime": 65,
+    "StartTime": 21,
     "Tasks": [
       {
         "Name": "l3-1",
         "ImageName": "zehwei/ibench",
-        "Cmd": ["./l3"]
+        "Cmd": ["./l3", "3"]
       }
     ]
   },
   {
     "JobName": "job5",
-    "StartTime": 60,
+    "StartTime": 32,
     "Tasks": [
       {
         "Name": "mem-1",
         "ImageName": "zehwei/ibench",
-        "Cmd": ["./memBw"]
+        "Cmd": ["./memBw", "15"]
       }
     ]
   }

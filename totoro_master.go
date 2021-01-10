@@ -2,6 +2,8 @@ package totoro
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
 	"time"
 )
 
@@ -14,6 +16,7 @@ type Totoro struct {
 	taskScheduler  		*TaskScheduler   	// task scheduling, responsible for task container management
 	policyEngine   		*PolicyEngine		// send instructions to MainAppManager and TaskScheduler
 	requestSimulator 	*RequestSimulator	// simulate clients to send serverless job to Totoro
+	exitChan			chan os.Signal		// capture exit signal from OS
 	shutdown       		chan struct{}
 }
 
@@ -27,17 +30,34 @@ func MakeTotoro() *Totoro {
 	totoro.taskScheduler = MakeTaskScheduler()
 	totoro.jobScheduler = MakeJobScheduler(totoro.taskScheduler)
 	totoro.requestSimulator = MakeRequestSimulator(totoro.jobScheduler)
+	totoro.exitChan = make(chan os.Signal)
+	signal.Notify(totoro.exitChan, os.Interrupt, os.Kill)
 	totoro.shutdown = make(chan struct{})
+	go totoro.monitorSignal()
 	return totoro
 }
 
 /*
  * start the system
  */
-func (ttr *Totoro) Start(notify chan struct{}) {
+func (ttr *Totoro) Start() {
 	ttr.mainAppManager.LaunchMainApp()
 	go ttr.monitorMainApp()
 	//go ttr.monitorCpuUsage()
+	ttr.requestSimulator.ReadJobs(JobTracePath)
+}
+
+/*
+ * monitor exit signal from OS to do necessary cleaning
+ */
+func (ttr *Totoro) monitorSignal() {
+	select {
+	case <- ttr.exitChan:
+		ttr.shutdown <- struct{}{}
+		ttr.taskScheduler.shutdown <- struct{}{}
+		ttr.taskScheduler.shutdown2 <- struct{}{}
+		ttr.jobScheduler.shutdown <- struct{}{}
+	}
 }
 
 /*
@@ -61,9 +81,8 @@ func (ttr *Totoro) monitorMainApp() {
  */
 func (ttr *Totoro) triggerPolicy() {
 	cpuUsage, _ := ttr.mainAppManager.GetResourceInfo()
-	//ttr.policyEngine.PolicyWithoutTask(cpuUsage)
-	//ttr.policyEngine.SimplePolicy(cpuUsage)
-	ttr.policyEngine.SecondPolicyWithoutTask(cpuUsage)
+	//ttr.policyEngine.SecondPolicyWithoutTask(cpuUsage)
+	ttr.policyEngine.SecondPolicy(cpuUsage)
 }
 
 /*
