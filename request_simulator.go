@@ -81,11 +81,11 @@ func (rs *RequestSimulator) monitorRequests() {
 	startTime := time.Now()
 	for rs.sendIndex < len(rs.requests)  {
 		r := rs.requests[rs.sendIndex]
-		t := time.Duration(r.requestTime) * time.Second - time.Now().Sub(startTime)
+		t := time.Duration(r.requestTime*1000) * time.Millisecond - time.Now().Sub(startTime)
 		if t > 0 {
 			time.Sleep(t)
 		}
-		if time.Now().Sub(startTime) >= time.Duration(r.requestTime) {
+		if time.Now().Sub(startTime) >= time.Duration(r.requestTime*1000) * time.Millisecond {
 			// use RPC to simulate sending requests to controller
 			r.job.Start = time.Now()
 			go rs.server.ReceiveRPC(r.job)

@@ -103,7 +103,12 @@ func (js *JobScheduler) outputJobInfo(job *Job) {
 	start := job.Start.Format(TimeLayoutStr)
 	end := job.End.Format(TimeLayoutStr)
 	duration := strconv.FormatFloat(float64(job.End.Sub(job.Start))/1e9, 'f', 3, 64)
-	content := []byte("JobName: "+job.JobName+"\n"+"StartTime: "+start+"\n"+"EndTime: "+end+"\n"+"Duration: "+duration+"\n\n")
+	content := []byte("JobName: "+job.JobName+"\n"+"StartTime: "+start+"\n"+"EndTime: "+end+"\n"+"Duration: "+duration+"\n")
 	_, err := js.jobInfoFile.Write(content)
 	if err != nil { util.PrintErr("[error] file write error") }
+	for _, task := range job.Tasks {
+		content2 := []byte("TaskName: "+task.Name+"\n"+"ExeTimes: "+strconv.Itoa(task.ExecuteTimes)+"\n"+"Type: "+task.Type+"\n")
+		_, err = js.jobInfoFile.Write(content2)
+	}
+	_, err = js.jobInfoFile.Write([]byte("\n"))
 }

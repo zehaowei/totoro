@@ -49,7 +49,15 @@ func GetContainerIdByName(name string) string {
 func InspectContainerById(containerId string) (string, int) {
 	ctx, cli := initCtxAndCli()
 
-	info, _ := cli.ContainerInspect(ctx, containerId)
+	info, err := cli.ContainerInspect(ctx, containerId)
+	if err != nil || info.ContainerJSONBase == nil{
+		util.PrintErr("[error] inspect container err")
+		e := cli.Close()
+		if e != nil {
+			util.PrintInfo("[error] cli connection close err")
+		}
+		return "", 0
+	}
 	status := info.ContainerJSONBase.State
 
 	e := cli.Close()
@@ -62,7 +70,11 @@ func InspectContainerById(containerId string) (string, int) {
 func GetAppResourceInfo(containerId string) (float64, float64){
 	ctx, cli := initCtxAndCli()
 
-	info, _ := cli.ContainerStats(ctx, containerId, false)
+	info, er := cli.ContainerStats(ctx, containerId, false)
+	if er != nil {
+		util.PrintErr("[error] getAppInfo err")
+		return 0.0, 0.0
+	}
 	if info.Body != nil {
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(info.Body)
@@ -70,6 +82,10 @@ func GetAppResourceInfo(containerId string) (float64, float64){
 		err := json.Unmarshal(buf.Bytes(), &containerStats)
 		if err != nil {
 			util.PrintErr("[error] json unmarshal error")
+			e := cli.Close()
+			if e != nil {
+				util.PrintInfo("[error] cli connection close err")
+			}
 			return 0.0, 0.0
 		}
 

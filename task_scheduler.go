@@ -56,8 +56,8 @@ func MakeTaskScheduler() *TaskScheduler {
 
 	ts.cpuTasksLimits = make(map[int]int, 0)
 	for i := 1; i < CoreNums; i++ {
-		ts.cpuTasksLimits[i*CpuSetsNum] = 1
-		ts.cpuTasksLimits[i*CpuSetsNum+CpuIndexGap] = 1
+		ts.cpuTasksLimits[i*CpuSetsNum] = TaskLimitPerCore
+		ts.cpuTasksLimits[i*CpuSetsNum+CpuIndexGap] = TaskLimitPerCore
 	}
 
 	ts.cpuStatus = make([]int, CoreNums)
@@ -151,6 +151,7 @@ func (ts *TaskScheduler) killTask(task *Task) {
 		if status == "exited" && code == 0 {
 			task.Status = COMPLETE
 			task.NotifyFinish <- struct{}{}
+			RemoveContainerById(task.ContainerId)
 		}
 		return
 	}
@@ -294,8 +295,6 @@ func (ts *TaskScheduler) monitorTaskStatus() {
  * check tasks in short and long term running list
  */
 func (ts *TaskScheduler) checkTaskStatus() {
-	ts.mu.Lock()
-	defer ts.mu.Unlock()
 	ts.checkRunningList(ts.shortTaskRunning)
 	ts.checkRunningList(ts.longTaskRunning)
 }
@@ -304,14 +303,22 @@ func (ts *TaskScheduler) checkTaskStatus() {
  * delete finished task from list and notify the client
  */
 func (ts *TaskScheduler) checkRunningList(taskRunning map[int][]*Task) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
 	for proc, tasks := range taskRunning {
 		if len(tasks) != 0 {
+			offset := 0
 			for ind, task := range tasks {
 				status, code := InspectContainerById(task.ContainerId)
 				if status == "exited" && code == 0 {
 					task.Status = COMPLETE
 					task.NotifyFinish <- struct{}{}
-					taskRunning[proc] = append(taskRunning[proc][:ind], taskRunning[proc][ind+1:]...)
+					taskRunning[proc] = append(taskRunning[proc][:ind-offset], taskRunning[proc][ind-offset+1:]...)
+					offset++
+					RemoveContainerById(task.ContainerId)
+				} else if status == "" && code == 0 {
+					taskRunning[proc] = append(taskRunning[proc][:ind-offset], taskRunning[proc][ind-offset+1:]...)
+					offset++
 				}
 			}
 		}

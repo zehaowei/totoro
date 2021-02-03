@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	Proportion	float64 = 0.625
+	Proportion	float64 = 0.625  // normal situation
+	Proportion2 float64 = 0.585	 // job: high load
 )
 
 /*
@@ -24,7 +25,8 @@ type PolicyEngine struct {
 
 	timestamps		[]int64			// just for experiments to collect statistics
 	nums			int				// just for experiments to collect statistics
-	
+
+	thresholdBase	float64			// base threshold to generate thresholds of inflation and deflation
 	inflateThresh  	[]float64		// thresholds to inflate memcached
 	inflateThresh2	[]float64		// thresholds to apply aggressive policy
 	deflateThresh	[]float64		// thresholds to deflate memcached
@@ -41,6 +43,11 @@ func MakePolicyEngine(ttr *Totoro) *PolicyEngine {
 	pe.coreNums = CoreNums
 	pe.procNums = CoreNums*2
 
+	if ttr.jobTraceType == JobTracePathHighLoad {
+		pe.thresholdBase = Proportion2
+	} else {
+		pe.thresholdBase = Proportion
+	}
 	pe.inflateThresh = make([]float64, pe.coreNums+1)
 	pe.deflateThresh = make([]float64, pe.coreNums+1)
 	pe.inflateThresh2 = make([]float64, pe.coreNums+1)
@@ -57,14 +64,14 @@ func MakePolicyEngine(ttr *Totoro) *PolicyEngine {
 			pe.inflateThresh[i] = 12000
 			pe.inflateThresh2[i] = 14000
 
-			pe.deflateThresh[i] = pe.inflateThresh[i-1] - Proportion * 100
-			pe.deflateThresh2[i] = pe.inflateThresh[i-2] - Proportion * 100
+			pe.deflateThresh[i] = pe.inflateThresh[i-1] - pe.thresholdBase * 100
+			pe.deflateThresh2[i] = pe.inflateThresh[i-2] - pe.thresholdBase * 100
 		} else {
-			pe.inflateThresh[i] = Proportion * 200 * float64(i)
-			pe.inflateThresh2[i] = Proportion * 200 * float64(i+1)
+			pe.inflateThresh[i] = pe.thresholdBase * 200 * float64(i)
+			pe.inflateThresh2[i] = pe.thresholdBase * 200 * float64(i+1)
 
-			pe.deflateThresh[i] = pe.inflateThresh[i-1] - Proportion * 100
-			pe.deflateThresh2[i] = pe.inflateThresh[i-2] - Proportion * 100
+			pe.deflateThresh[i] = pe.inflateThresh[i-1] - pe.thresholdBase * 100
+			pe.deflateThresh2[i] = pe.inflateThresh[i-2] - pe.thresholdBase * 100
 		}
 	}
 	pe.timestamps2 = make([]int64, 0)
